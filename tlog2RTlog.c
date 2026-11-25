@@ -192,7 +192,9 @@ int main(int argc ,char *argv[])
 			} */
 			if (record_count==1 && string_type==15) 
 			{
+				fprintf(stderr, "Before store_in_struct: type=%d\n", string_type);
 				store_in_struct(string_type,holdarray,record_count);
+				fprintf(stderr, "After store_in_struct\n");
 				if(strcmp(v_1_15.unit_number,first_four_tlogname))
 				{
 					printf("TLOGNAME store number and Inside Store Number Not matching\n");
@@ -212,7 +214,9 @@ int main(int argc ,char *argv[])
 				if(string_type==15) substr(string15_2part,itemline,4,4);
 				if (string_type!=16) 
 				{
+					fprintf(stderr, "Before FieldExtract\n");
 					FieldExtract(itemline,"|",holdarray,&field_count);
+					fprintf(stderr, "After FieldExtract, fields=%d\n", field_count);
 
 					if(string_type==10)
 					{
@@ -264,7 +268,9 @@ int main(int argc ,char *argv[])
                                         	strcat(Rtlogname,".dat");
                                         	strcat(Org_Rtlogname,".dat");
 						sprintf(message,"tlog2Rtlog.c:Store:%s InPut:%s Output RTLOG:%s",v_1_15.unit_number,tlogname,Rtlogname);
+						fprintf(stderr, "Before RTLOG path LOG_MESSAGE\n");
 						LOG_MESSAGE(message);
+						fprintf(stderr, "After RTLOG path LOG_MESSAGE\n");
                                         	if(( outfile = fopen(Rtlogname,"w")) == NULL)
                                         	{
                                                 	/*printf("Unable to open %s file in Write Mode\nExiting..",tlogascii);*/
