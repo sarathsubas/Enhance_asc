@@ -319,7 +319,6 @@ void LOG_MESSAGE(char* message)
 		printf("Unable to Open LogFile");
 	}
 	fprintf(logfile,"%s\n",message);
-	free(message);	
 	fclose(logfile);
 }
 
@@ -405,7 +404,6 @@ void hex2bin(char *sh,char *arr,int *no_of_bin_digits)
 	printf("%c\t",arr[j]);
 	printf("\n"); */
 	*no_of_bin_digits=no_of_bits;
-	free(ref);
 }
 
 #endif
