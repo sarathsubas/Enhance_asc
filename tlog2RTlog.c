@@ -65,6 +65,7 @@ struct THEAD_DB_Record thead_records[MAX_THEAD_BATCH];
 int thead_record_count = 0;
 FILE *thead_error_log = NULL;
 char thead_error_logfile[256];
+FILE *thead_input_log = NULL;
 
 /* Function prototypes for THEAD operations */
 void InitializeTHEADDbOps(char *log_directory);
@@ -78,6 +79,7 @@ int GenerateTHEADInsertSQL(char *sql_filename);
 int ExecuteTHEADInsert(char *sql_filename);
 void LogTHEADError(char *tran_no, char *error_msg);
 void CloseTHEADDbOps(void);
+void LogTHEADBatchBeforeInsert(void);
 static void EscapeSQLString(char *src, char *dest, int dest_size);
 
 
@@ -554,6 +556,7 @@ int main(int argc ,char *argv[])
 		
 		fprintf(stderr, "\n=== THEAD Database Insert ===\n");
 		fprintf(stderr, "Collected %d THEAD records\n", thead_record_count);
+		LogTHEADBatchBeforeInsert();
 		
 		if (GenerateTHEADInsertSQL(sql_temp_file) > 0)
 		{
@@ -694,7 +697,6 @@ void FieldExtract( char *src, char *delim, char arr[][MAXFLDSIZE],int *fldcnt)
                 fld++;
         }
         *fldcnt=fld;
-        free(src);
 }
 
 void writeRtlogDHeader(int string_counter)
@@ -999,7 +1001,55 @@ void time_stamp_extract(char *tm_stamp)
         strcat(tm_stamp,tm_mm);
         strcat(tm_stamp,tm_hs);
 }
+static void LogTHEADField(const char *name, const char *value, size_t capacity)
+{
+    size_t len = strnlen(value, capacity);
+    fprintf(thead_input_log, "%s[%lu]=\"%.*s\"\n",
+            name, (unsigned long)len, (int)len, value);
+}
 
+static void LogTHEADBatchBeforeInsert(void)
+{
+    int i;
+
+    if (thead_input_log == NULL)
+        return;
+
+    fprintf(thead_input_log, "Record count: %d\n", thead_record_count);
+    fprintf(thead_input_log, "Record size: %lu bytes\n",
+            (unsigned long)sizeof(thead_records[0]));
+    fprintf(thead_input_log, "Batch size: %lu bytes\n\n",
+            (unsigned long)(thead_record_count * sizeof(thead_records[0])));
+
+    for (i = 0; i < thead_record_count; i++) {
+        struct THEAD_DB_Record *r = &thead_records[i];
+
+        fprintf(thead_input_log, "--- record %d ---\n", i + 1);
+        LogTHEADField("STORE", r->STORE, sizeof(r->STORE));
+        LogTHEADField("BUSINESS_DATE", r->BUSINESS_DATE, sizeof(r->BUSINESS_DATE));
+        LogTHEADField("TRAN_DATETIME", r->TRAN_DATETIME, sizeof(r->TRAN_DATETIME));
+        LogTHEADField("REGISTER", r->REGISTER, sizeof(r->REGISTER));
+        LogTHEADField("TRAN_NO", r->TRAN_NO, sizeof(r->TRAN_NO));
+        LogTHEADField("CASHIER", r->CASHIER, sizeof(r->CASHIER));
+        LogTHEADField("SALESPERSON", r->SALESPERSON, sizeof(r->SALESPERSON));
+        LogTHEADField("TRAN_TYPE", r->TRAN_TYPE, sizeof(r->TRAN_TYPE));
+        LogTHEADField("SUB_TRAN_TYPE", r->SUB_TRAN_TYPE, sizeof(r->SUB_TRAN_TYPE));
+        LogTHEADField("ORIG_TRAN_NO", r->ORIG_TRAN_NO, sizeof(r->ORIG_TRAN_NO));
+        LogTHEADField("ORIG_REG_NO", r->ORIG_REG_NO, sizeof(r->ORIG_REG_NO));
+        LogTHEADField("REF_NO1", r->REF_NO1, sizeof(r->REF_NO1));
+        fprintf(thead_input_log, "REF_NO2=<redacted>\n");
+        LogTHEADField("REF_NO3", r->REF_NO3, sizeof(r->REF_NO3));
+        LogTHEADField("REF_NO4", r->REF_NO4, sizeof(r->REF_NO4));
+        LogTHEADField("VALUE", r->VALUE, sizeof(r->VALUE));
+        LogTHEADField("VALUE_SIGN", r->VALUE_SIGN, sizeof(r->VALUE_SIGN));
+        LogTHEADField("BANNER_NO", r->BANNER_NO, sizeof(r->BANNER_NO));
+        LogTHEADField("ROUNDED_AMT", r->ROUNDED_AMT, sizeof(r->ROUNDED_AMT));
+        LogTHEADField("ROUNDED_OFF_AMT", r->ROUNDED_OFF_AMT, sizeof(r->ROUNDED_OFF_AMT));
+        fputc('\n', thead_input_log);
+    }
+
+    fflush(thead_input_log);
+}
 /* ========== THEAD Database Operations Implementation ========== */
 
 /**
@@ -1019,6 +1069,14 @@ void InitializeTHEADDbOps(char *log_directory)
 	time(&now);
 	timeinfo = localtime(&now);
 	strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", timeinfo);
+
+	char input_logfile[512];
+	snprintf(input_logfile, sizeof(input_logfile),
+         "%s/THEAD_INPUT_%s.log", log_directory, timestamp);
+	thead_input_log = fopen(input_logfile, "w");
+
+if (thead_input_log != NULL)
+    fprintf(thead_input_log, "THEAD pre-insert input log - %s\n\n", timestamp);
 	
 	sprintf(thead_error_logfile, "%s/THEAD_ERROR_%s.log", log_directory, timestamp);
 	
@@ -1030,7 +1088,10 @@ void InitializeTHEADDbOps(char *log_directory)
 		fprintf(thead_error_log, "=====================================================\n\n");
 		fflush(thead_error_log);
 	}
-	
+	if (thead_input_log != NULL) {
+    fclose(thead_input_log);
+    thead_input_log = NULL;
+}
 	thead_record_count = 0;
 }
 
